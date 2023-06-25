@@ -1,11 +1,13 @@
 package main
 
 import (
-	"database/sql"
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
+	"net/http"
 
+	"github.com/danny-personal/go-ent-example/ent"
 	_ "github.com/lib/pq"
 )
 
@@ -15,31 +17,41 @@ const (
 	DATABASE = "postgres"
 	USER     = "postgres"
 	PASSWORD = "postgres"
+	PORT     = "5432"
 )
 
-type User struct {
-	Id   int    `db:"user_id"`
-	Name string `db:"user_name"`
+type Handler struct {
+	client *ent.Client
+}
+
+func NewHandler(client *ent.Client) *Handler {
+	return &Handler{client: client}
 }
 
 func main() {
-	fmt.Println("hello")
-	var connectionString string = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", HOST, USER, PASSWORD, DATABASE)
-	db, err := sql.Open("postgres", connectionString)
+	var connectionString string = fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable", HOST, PORT, USER, DATABASE, PASSWORD)
+	client, err := ent.Open("postgres", connectionString)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed opening connection to postgres: %v", err)
 	}
-	rows, err := db.Query("SELECT * FROM users")
+	defer client.Close()
+
+	handler := NewHandler(client)
+	http.HandleFunc("/", handler.userHandler)
+	http.ListenAndServe(":8080", nil)
+}
+
+func (h *Handler) userHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	u, err := h.client.User.Query().All(ctx)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	defer rows.Close()
-	var user User
-	for rows.Next() {
-		err := rows.Scan(&user.Id, &user.Name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("ID: %s, Name: %s\n", strconv.Itoa(user.Id), user.Name)
+	log.Println("user returned: ", u)
+
+	if err := json.NewEncoder(w).Encode(u); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
