@@ -26,4 +26,5 @@ RUN mkdir -p $GOPATH/src/go.mozilla.org/sops/ \
     && make install
 RUN sops --version
 
+# Install age
 RUN apt install age && mkdir -p $XDG_CONFIG_HOME/sops/age && chmod 700 $XDG_CONFIG_HOME/sops/age && touch $XDG_CONFIG_HOME/sops/age/keys.txt
