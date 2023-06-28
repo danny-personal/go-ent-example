@@ -21,3 +21,4 @@
 *.test
 # プロジェクトの設定ファイル
 /config.json
+key.json
